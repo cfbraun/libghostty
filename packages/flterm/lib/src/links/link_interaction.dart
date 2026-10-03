@@ -124,6 +124,24 @@ final class LinkInteraction extends ChangeNotifier {
     return true;
   }
 
+  /// Whether a mouse press at [localPosition] belongs to a link rather than
+  /// to terminal mouse tracking.
+  ///
+  /// True only when an explicit activation modifier is configured and held
+  /// (Cmd/Ctrl by default) over a link. Without this, an application that
+  /// enables mouse reporting (Claude Code, vim, htop) receives the press: the
+  /// link highlights on hover but a click never opens it. Plain clicks
+  /// ([ActivationModifier.none]) keep going to the application.
+  bool claimsModifiedPress({
+    required Offset localPosition,
+    required CellMetrics metrics,
+    required Mods virtualMods,
+  }) {
+    if (_settings.modifier == .none) return false;
+    if (!_canActivate(.mouse, virtualMods)) return false;
+    return _linkAt(metrics.cellAt(localPosition)) != null;
+  }
+
   ActivatedLink? handleRelease({
     required Offset localPosition,
     required CellMetrics metrics,

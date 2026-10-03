@@ -443,7 +443,9 @@ final class _InteractionRegionState extends State<InteractionRegion> {
 
   void _handleTrackedDown(PointerDownEvent event) {
     if (_activePointers.containsKey(event.pointer)) return;
-    final tracked = _isMouseTracked();
+    // A modified click on a link opens the link even when the application
+    // tracks the mouse; the tap handler then claims it as a link press.
+    final tracked = _isMouseTracked() && !_linkClaimsPress(event);
     final button = tracked ? _buttonForDownEvent(event) : null;
     if (_interactionPointer == null) {
       _interactionPointer = event.pointer;
@@ -534,6 +536,15 @@ final class _InteractionRegionState extends State<InteractionRegion> {
     return widget.interaction.value.mouseTracking != .none &&
         !HardwareKeyboard.instance.isShiftPressed &&
         !widget.readVirtualMods().hasShift;
+  }
+
+  bool _linkClaimsPress(PointerDownEvent event) {
+    if (event.kind != .mouse) return false;
+    return widget.links.claimsModifiedPress(
+      localPosition: event.localPosition,
+      metrics: widget.metrics,
+      virtualMods: widget.readVirtualMods(),
+    );
   }
 
   MouseButton? _mouseButtonForBit(int button) => _mouseButtons[button];

@@ -403,6 +403,97 @@ void main() {
         expect(links, isEmpty);
       });
 
+      group('modified link press over mouse tracking', () {
+        LinkInteraction controlLinks(TerminalController controller) {
+          final links = LinkInteraction();
+          addTearDown(links.dispose);
+          links.update(
+            context: LinkContext(
+              terminal: terminalFor(controller),
+              rows: 24,
+              cols: 80,
+              cwd: null,
+            ),
+            settings: LinkSettings(modifier: .control, onActivate: (_) {}),
+            idleStyle: const HyperlinkStyle(),
+          );
+          return links;
+        }
+
+        testWidgets('opens the link instead of reporting to the app', (
+          tester,
+        ) async {
+          final activated = <ActivatedLink>[];
+          final events = <Uint8List>[];
+          writeToTerminal(controller, 'plan/66-janela-dbq.md');
+          enableSgrMouseTracking(controller);
+          controller.onOutput = events.add;
+
+          await tester.pumpWidget(
+            buildHandler(
+              controller: controller,
+              links: controlLinks(controller),
+              onLinkActivate: activated.add,
+            ),
+          );
+
+          await tester.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
+          await tapMouse(tester, const Offset(8, 0));
+          await tester.sendKeyUpEvent(LogicalKeyboardKey.controlLeft);
+
+          expect(activated.single.text, 'plan/66-janela-dbq.md');
+          expect(sgrCodes(events), isEmpty);
+        });
+
+        testWidgets('without the modifier the app still gets the click', (
+          tester,
+        ) async {
+          final activated = <ActivatedLink>[];
+          final events = <Uint8List>[];
+          writeToTerminal(controller, 'plan/66-janela-dbq.md');
+          enableSgrMouseTracking(controller);
+          controller.onOutput = events.add;
+
+          await tester.pumpWidget(
+            buildHandler(
+              controller: controller,
+              links: controlLinks(controller),
+              onLinkActivate: activated.add,
+            ),
+          );
+
+          await tapMouse(tester, const Offset(8, 0));
+
+          expect(activated, isEmpty);
+          expect(sgrCodes(events), isNotEmpty);
+        });
+
+        testWidgets('modified click off a link still reaches the app', (
+          tester,
+        ) async {
+          final activated = <ActivatedLink>[];
+          final events = <Uint8List>[];
+          writeToTerminal(controller, 'plan/66-janela-dbq.md');
+          enableSgrMouseTracking(controller);
+          controller.onOutput = events.add;
+
+          await tester.pumpWidget(
+            buildHandler(
+              controller: controller,
+              links: controlLinks(controller),
+              onLinkActivate: activated.add,
+            ),
+          );
+
+          await tester.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
+          await tapMouse(tester, const Offset(400, 160));
+          await tester.sendKeyUpEvent(LogicalKeyboardKey.controlLeft);
+
+          expect(activated, isEmpty);
+          expect(sgrCodes(events), isNotEmpty);
+        });
+      });
+
       testWidgets('drag creates selection with correct cells', (tester) async {
         await tester.pumpWidget(buildHandler(controller: controller));
 
