@@ -18,14 +18,14 @@ void main() {
     var invalidations = 0;
     attachment.frameChanges.addListener(() => invalidations++);
 
-    attachment.setPresentationActive(false);
+    attachment.setPresentationActive(active: false);
     for (var i = 0; i < 100; i++) {
       controller.write(Uint8List.fromList(utf8.encode('line $i\r\n')));
     }
     expect(invalidations, 0);
     expect(controller.scrollbackRows, greaterThan(0));
 
-    attachment.setPresentationActive(true);
+    attachment.setPresentationActive(active: true);
     expect(invalidations, 1);
 
     controller.write(Uint8List.fromList(utf8.encode('visible')));
