@@ -2,10 +2,12 @@
 library;
 
 import 'dart:convert';
-import 'dart:typed_data';
 
 import 'package:flterm/src/controller/terminal_controller.dart';
 import 'package:flterm/src/foundation.dart';
+import 'package:flutter/foundation.dart'
+    show TargetPlatform, debugDefaultTargetPlatformOverride;
+import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:libghostty/libghostty.dart'
@@ -223,6 +225,84 @@ void main() {
         controller.write(Uint8List.fromList(utf8.encode('\x1b[?1049h')));
 
         expect(notifications, 0);
+      });
+    });
+
+    group('dead keys under Kitty keyboard', () {
+      late List<int> output;
+
+      setUp(() {
+        debugDefaultTargetPlatformOverride = TargetPlatform.macOS;
+        output = <int>[];
+        controller.onOutput = output.addAll;
+        // Enable the Kitty keyboard protocol so an unmodified printable press
+        // would otherwise be encoded and sent to the PTY.
+        controller.write(Uint8List.fromList(utf8.encode('\x1b[>1u')));
+      });
+
+      tearDown(() {
+        debugDefaultTargetPlatformOverride = null;
+      });
+
+      KeyDownEvent keyDown(
+        PhysicalKeyboardKey physical,
+        LogicalKeyboardKey logical, {
+        String? character,
+      }) {
+        return KeyDownEvent(
+          physicalKey: physical,
+          logicalKey: logical,
+          character: character,
+          timeStamp: Duration.zero,
+        );
+      }
+
+      test('a dead key with a null character is ignored and reaches no '
+          'PTY', () {
+        final result = attachment.handleKeyEvent(
+          keyDown(
+            PhysicalKeyboardKey.bracketLeft,
+            LogicalKeyboardKey.bracketLeft,
+          ),
+        );
+
+        expect(result, KeyEventResult.ignored);
+        expect(output, isEmpty);
+      });
+
+      test('a dead key delivered as a bare acute is ignored', () {
+        final result = attachment.handleKeyEvent(
+          keyDown(
+            PhysicalKeyboardKey.bracketLeft,
+            LogicalKeyboardKey.bracketLeft,
+            character: '´',
+          ),
+        );
+
+        expect(result, KeyEventResult.ignored);
+        expect(output, isEmpty);
+      });
+
+      test('a plain printable key still encodes to the PTY', () {
+        final result = attachment.handleKeyEvent(
+          keyDown(
+            PhysicalKeyboardKey.keyA,
+            LogicalKeyboardKey.keyA,
+            character: 'a',
+          ),
+        );
+
+        expect(result, KeyEventResult.handled);
+        expect(output, isNotEmpty);
+      });
+
+      test('Enter is not treated as a dead key and reaches the PTY', () {
+        final result = attachment.handleKeyEvent(
+          keyDown(PhysicalKeyboardKey.enter, LogicalKeyboardKey.enter),
+        );
+
+        expect(result, KeyEventResult.handled);
+        expect(output, isNotEmpty);
       });
     });
   });

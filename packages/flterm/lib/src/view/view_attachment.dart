@@ -13,6 +13,9 @@ final class ViewAttachment extends ChangeNotifier {
   static const _delete = 0x7f;
   static const _macFunctionKeyStart = 0xF700;
   static const _macFunctionKeyEnd = 0xF8FF;
+  static const _spacingAcute = 0x00B4;
+  static const _combiningStart = 0x0300;
+  static const _combiningEnd = 0x036F;
 
   final Object _viewToken;
   final links = LinkInteraction();
@@ -313,6 +316,8 @@ final class ViewAttachment extends ChangeNotifier {
       unshiftedCodepoint: unshiftedCodepoint,
     );
 
+    if (_shouldIgnoreDeadKey(input)) return .ignored;
+
     if (_shouldForwardCompositionKey(input)) return .skipRemainingHandlers;
 
     final routeToTextInput = _shouldRouteToTextInput(input);
@@ -392,6 +397,39 @@ final class ViewAttachment extends ChangeNotifier {
     if (metrics != null) {
       links.refreshHover(metrics: metrics, virtualMods: readVirtualMods());
     }
+  }
+
+  /// Whether a printable key press is a dead key that the IME must compose.
+  ///
+  /// A dead key (acute, grave, tilde) fires a key-down for a printable key
+  /// before the platform has composed a character, so [KeyInput.character] is
+  /// null (some embedders instead deliver the bare accent, U+00B4 or a
+  /// combining diacritic). Under the Kitty keyboard protocol the encoder would
+  /// otherwise turn that press into an escape sequence and send it to the PTY,
+  /// stealing the accent from composition. Returning it as ignored leaves the
+  /// event for the text-input path so the accented character composes normally.
+  ///
+  /// Only unmodified presses of printable keys qualify: Enter, Tab, arrows and
+  /// other non-character keys report a zero unshifted codepoint, and any
+  /// Ctrl/Alt/Super combination (or an active virtual modifier) is a real
+  /// terminal chord that must still be encoded.
+  bool _shouldIgnoreDeadKey(KeyInput input) {
+    if (!_isDesktopPlatform) return false;
+    if (input.action != .press && input.action != .repeat) return false;
+    if (input.unshiftedCodepoint <= 0) return false;
+    if (!_controller._virtualMods.isEmpty) return false;
+    final mods = input.mods;
+    if (mods.hasCtrl || mods.hasAlt || mods.hasSuper) return false;
+    return _isDeadKeyCharacter(input.character);
+  }
+
+  bool _isDeadKeyCharacter(String? character) {
+    if (character == null) return true;
+    final runes = character.runes;
+    if (runes.length != 1) return false;
+    final rune = runes.first;
+    return rune == _spacingAcute ||
+        (rune >= _combiningStart && rune <= _combiningEnd);
   }
 
   bool _shouldForwardCompositionKey(KeyInput input) {
