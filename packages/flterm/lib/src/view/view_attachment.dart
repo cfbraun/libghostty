@@ -18,6 +18,7 @@ final class ViewAttachment extends ChangeNotifier {
   static const _combiningEnd = 0x036F;
 
   final Object _viewToken;
+  final _presentationFrames = ChangeNotifier();
   final links = LinkInteraction();
   final TerminalSession _controller;
   final _textInput = TextInputSession();
@@ -38,6 +39,7 @@ final class ViewAttachment extends ChangeNotifier {
   var _wasFocused = false;
   ScrollController? _scrollController;
   var _disposed = false;
+  var _presentationActive = true;
 
   factory ViewAttachment(TerminalController controller) =>
       ViewAttachment._(controller as TerminalSession);
@@ -75,7 +77,15 @@ final class ViewAttachment extends ChangeNotifier {
     return position.pixels >= position.maxScrollExtent - 1.0;
   }
 
-  Listenable get frameChanges => _controller._frameChanges;
+  Listenable get frameChanges => _presentationFrames;
+
+  /// Keep the terminal attached while withholding renderer notifications for
+  /// a view that is not currently presented.
+  void setPresentationActive({required bool active}) {
+    if (_presentationActive == active) return;
+    _presentationActive = active;
+    if (active) _presentationFrames.notifyListeners();
+  }
 
   ValueListenable<TerminalInteractionState> get interaction => _interaction;
 
@@ -191,6 +201,7 @@ final class ViewAttachment extends ChangeNotifier {
     selectionInput.dispose();
     _detachInput();
     _interaction.dispose();
+    _presentationFrames.dispose();
     _controller.detachView(_viewToken);
     super.dispose();
   }
@@ -383,6 +394,7 @@ final class ViewAttachment extends ChangeNotifier {
   void _handleTerminalChanged() {
     links.invalidateContent();
     _compressionScheduler.notifyActivity();
+    if (_presentationActive) _presentationFrames.notifyListeners();
   }
 
   TerminalInteractionState _readInteractionState() {

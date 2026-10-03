@@ -45,6 +45,10 @@ class TerminalView extends StatefulWidget {
   /// new controller must not already be attached to another [TerminalView].
   final TerminalController controller;
 
+  /// Suspends renderer notifications while this mounted view is hidden.
+  /// Reactivation synchronizes layout and paint with the current terminal.
+  final bool presentationActive;
+
   /// Visual style. Defaults to [TerminalTheme.dark()].
   ///
   /// Changing the font family or size recalculates cell metrics and
@@ -140,6 +144,7 @@ class TerminalView extends StatefulWidget {
   const TerminalView({
     super.key,
     required this.controller,
+    this.presentationActive = true,
     this.theme,
     this.fontData,
     this.focusNode,
@@ -232,6 +237,7 @@ final class _TerminalViewState extends State<TerminalView>
                           focused: _focusNode.hasFocus,
                           terminal: _attachment.terminal,
                           frameChanges: _attachment.frameChanges,
+                          presentationActive: widget.presentationActive,
                           searchMatches: matches,
                           selectedSearchMatch: selected,
                           atlasPool: atlasPool,
@@ -361,6 +367,10 @@ final class _TerminalViewState extends State<TerminalView>
     super.didUpdateWidget(oldWidget);
 
     final controllerChanged = _syncViewResources(oldWidget);
+    if (controllerChanged ||
+        widget.presentationActive != oldWidget.presentationActive) {
+      _attachment.setPresentationActive(active: widget.presentationActive);
+    }
     _syncAppearance(oldWidget, controllerChanged);
   }
 
@@ -429,6 +439,7 @@ final class _TerminalViewState extends State<TerminalView>
 
   void _initializeAttachment({required bool initial}) {
     _attachment = ViewAttachment(_controller);
+    _attachment.setPresentationActive(active: widget.presentationActive);
     _attachment.applyTheme(_theme, initial: initial);
     _attachment.mouseAutoHide = widget.mouseAutoHide;
     _resizeDeferred = _attachment.resizeDeferred;
@@ -552,6 +563,7 @@ final class _TerminalViewState extends State<TerminalView>
 
     if (controllerChanged) {
       _attachment = ViewAttachment(_controller);
+      _attachment.setPresentationActive(active: widget.presentationActive);
       _attachment.addListener(_onControllerChanged);
       _resizeDeferred = _attachment.resizeDeferred;
     }

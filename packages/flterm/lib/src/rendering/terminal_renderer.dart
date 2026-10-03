@@ -49,6 +49,9 @@ final class TerminalRenderer extends LeafRenderObjectWidget {
   /// Publishes frame changes after the owning session updates its state.
   final Listenable frameChanges;
 
+  /// Whether this renderer's mounted view is currently presented.
+  final bool presentationActive;
+
   /// Search matches intersecting the viewport.
   final List<Selection> searchMatches;
 
@@ -129,6 +132,7 @@ final class TerminalRenderer extends LeafRenderObjectWidget {
     super.key,
     required this.terminal,
     required this.frameChanges,
+    this.presentationActive = true,
     this.searchMatches = const [],
     this.selectedSearchMatch,
     required this.theme,
@@ -157,6 +161,7 @@ final class TerminalRenderer extends LeafRenderObjectWidget {
       surfacePadding: surfacePadding,
       terminal: terminal,
       frameChanges: frameChanges,
+      initialPresentationActive: presentationActive,
       searchMatches: searchMatches,
       selectedSearchMatch: selectedSearchMatch,
       atlasPool: atlasPool,
@@ -199,6 +204,7 @@ final class TerminalRenderer extends LeafRenderObjectWidget {
     renderObject
       ..terminal = terminal
       ..frameChanges = frameChanges
+      ..presentationActive = presentationActive
       ..searchMatches = searchMatches
       ..selectedSearchMatch = selectedSearchMatch
       ..theme = theme
@@ -243,6 +249,7 @@ final class TerminalRenderBox extends RenderBox
 
   Terminal _terminal;
   Listenable _frameChanges;
+  bool _presentationActive;
   LinkInteraction? _links;
   var _mouseCursorHidden = false;
   TextInputGeometryChanged? _onTextInputGeometryChanged;
@@ -257,6 +264,7 @@ final class TerminalRenderBox extends RenderBox
   TerminalRenderBox({
     required this._terminal,
     required this._frameChanges,
+    bool initialPresentationActive = true,
     List<Selection> searchMatches = const [],
     Selection? selectedSearchMatch,
     required TerminalTheme theme,
@@ -274,7 +282,8 @@ final class TerminalRenderBox extends RenderBox
     required this._onGeometryChanged,
     required ValueChanged<int> onViewportRowChanged,
     this._onTextInputGeometryChanged,
-  }) : _onViewportRowChanged = onViewportRowChanged {
+  }) : _presentationActive = initialPresentationActive,
+       _onViewportRowChanged = onViewportRowChanged {
     _viewport = TerminalViewportCoordinator.bind(offset, onViewportRowChanged);
     _links = links;
     _mouseCursorHidden = mouseCursorHidden;
@@ -336,6 +345,15 @@ final class TerminalRenderBox extends RenderBox
     if (attached) _frameChanges.addListener(_onFrameChanged);
     _surface.requestTerminalSync();
     markNeedsLayout();
+  }
+
+  set presentationActive(bool value) {
+    if (_presentationActive == value) return;
+    _presentationActive = value;
+    if (value) {
+      _surface.requestTerminalSync();
+      markNeedsLayout();
+    }
   }
 
   @override
