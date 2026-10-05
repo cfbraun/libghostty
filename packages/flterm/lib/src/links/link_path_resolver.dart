@@ -83,7 +83,9 @@ abstract final class LinkPathResolver {
 
   static String trimTextLink(String text) {
     if (parseTextUri(text) != null) return _trimTrailingPunctuation(text);
-    return _trimTrailingPathProse(text);
+    // Paths also pick up trailing prose punctuation (e.g. a sentence-ending
+    // ".dmg."), so strip it after dropping any spaced prose words.
+    return _trimTrailingPunctuation(_trimTrailingPathProse(text));
   }
 
   static String? _cwdPath(String? cwd) {

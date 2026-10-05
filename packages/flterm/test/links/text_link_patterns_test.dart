@@ -25,6 +25,17 @@ void main() {
         }
       }
 
+      test('strips trailing prose punctuation from file paths', () {
+        expectDetected([
+          (
+            input: 'built ~/Downloads/app-v9.dmg.',
+            expected: '~/Downloads/app-v9.dmg',
+          ),
+          (input: 'see /etc/hosts.', expected: '/etc/hosts'),
+          (input: 'log at /tmp/run.log,', expected: '/tmp/run.log'),
+        ]);
+      });
+
       test('matches supported URL and URI schemes', () {
         expectDetected([
           (input: 'match https://example.com', expected: 'https://example.com'),
