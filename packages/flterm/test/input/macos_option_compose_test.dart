@@ -10,14 +10,19 @@ import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart' show KeyEventResult;
 import 'package:flutter_test/flutter_test.dart';
 
-/// On macOS the Option key composes characters on BOTH sides (there is no
-/// AltGr). When a composed character is produced, the Alt modifier was consumed
-/// to make it, so under the Kitty keyboard protocol the terminal must emit that
-/// text — not report it as `Alt+<base key>`.
+/// macOS Option-key composition under the Kitty keyboard protocol (German
+/// layout; reported via Claude Code, which pushes Kitty flags `>5u`).
 ///
-/// Regression test for: German layout, left Option+L (`@`) / Option+N (`~`)
-/// arriving in Claude Code (Kitty flags `>5u`) as `\e[108;3u` / `\e[110;3u`
-/// instead of `@` / `~`.
+/// Two cases, two mechanisms:
+///  - An Option combo that commits a character immediately (Option+L → `@`):
+///    Alt was consumed to produce it, so the encoder must emit the text, not
+///    `Alt+l`. Handled by `consumedModifiersFor` (either Option composes).
+///  - A dead key (Option+N): the keydown carries NO character — macOS holds the
+///    composition and commits (`~`) on the next key. The keydown is IGNORED
+///    so the IME commits and the composition is not aborted; emitting `Alt+n`
+///    breaks both. The committed text flows through the IME/text-input path,
+///    which a unit test cannot drive faithfully, so the dead-key test here
+///    asserts the suppression half; the full `~` is verified in a live build.
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
@@ -60,37 +65,37 @@ void main() {
       expect(utf8.decode(output), '@');
     });
 
-    test('left Option+N (dead tilde committed) emits "~", not Alt+n', () async {
+    test('left Option+N dead-key press is ignored (not emitted as Alt+n)',
+        () async {
+      enableKitty();
+      await simulateKeyDownEvent(LogicalKeyboardKey.altLeft);
+      final result = attachment.handleKeyEvent(
+        // Dead key: macOS delivers no character on the Option+N keydown.
+        const KeyDownEvent(
+          physicalKey: PhysicalKeyboardKey.keyN,
+          logicalKey: LogicalKeyboardKey.keyN,
+          timeStamp: Duration.zero,
+        ),
+      );
+      expect(result, KeyEventResult.ignored);
+      expect(output, isEmpty);
+    });
+
+    test('safety: Option+Right (real Alt binding) is still emitted', () async {
+      // A functional key under Option has no layout character and
+      // unshiftedCodepoint 0, so it is not a composition and must still be sent
+      // (Alt+Right word motion, etc.) — never swallowed by the dead-key path.
       enableKitty();
       await simulateKeyDownEvent(LogicalKeyboardKey.altLeft);
       final result = attachment.handleKeyEvent(
         const KeyDownEvent(
-          physicalKey: PhysicalKeyboardKey.keyN,
-          logicalKey: LogicalKeyboardKey.keyN,
-          character: '~',
+          physicalKey: PhysicalKeyboardKey.arrowRight,
+          logicalKey: LogicalKeyboardKey.arrowRight,
           timeStamp: Duration.zero,
         ),
       );
       expect(result, KeyEventResult.handled);
-      expect(utf8.decode(output), '~');
-    });
-
-    test('safety: Option+key with no composed character still reports Alt',
-        () async {
-      // When Option produces no layout character, the modifier was NOT consumed
-      // and must still be reported (so real Alt bindings keep working).
-      enableKitty();
-      await simulateKeyDownEvent(LogicalKeyboardKey.altLeft);
-      attachment.handleKeyEvent(
-        // No character: Option produced no layout character here.
-        const KeyDownEvent(
-          physicalKey: PhysicalKeyboardKey.keyL,
-          logicalKey: LogicalKeyboardKey.keyL,
-          timeStamp: Duration.zero,
-        ),
-      );
-      // key 'l' (108) reported with the alt modifier (`;3`).
-      expect(utf8.decode(output), '\x1b[108;3u');
+      expect(output, isNotEmpty);
     });
   });
 }

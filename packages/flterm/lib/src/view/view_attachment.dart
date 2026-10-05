@@ -433,7 +433,18 @@ final class ViewAttachment extends ChangeNotifier {
     if (input.unshiftedCodepoint <= 0) return false;
     if (!_controller._virtualMods.isEmpty) return false;
     final mods = input.mods;
-    if (mods.hasCtrl || mods.hasAlt || mods.hasSuper) return false;
+    // macOS: Option is the compose/dead-key modifier (no AltGr, and with
+    // macos-option-as-alt off there is no Alt+<letter> to send). So an
+    // Option+<text key> press yielding a dead/empty character is a composition
+    // in progress — e.g. German Option+N, which commits `~` on the next key.
+    // Ignore it so the IME commits the composed text; emitting Alt+<key> would
+    // corrupt the stream AND abort the OS composition. Elsewhere Alt is Meta
+    // and must pass through. Functional keys (arrows, etc.) already returned
+    // above via the unshiftedCodepoint guard, so real Alt bindings are safe.
+    final optionComposes = defaultTargetPlatform == TargetPlatform.macOS;
+    if (mods.hasCtrl || mods.hasSuper || (mods.hasAlt && !optionComposes)) {
+      return false;
+    }
     return _isDeadKeyCharacter(input.character);
   }
 
