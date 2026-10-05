@@ -1,3 +1,5 @@
+import 'package:flutter/foundation.dart'
+    show TargetPlatform, defaultTargetPlatform;
 import 'package:flutter/services.dart';
 import 'package:libghostty/libghostty.dart' show Mods;
 import 'package:meta/meta.dart';
@@ -21,8 +23,15 @@ Mods consumedModifiersFor(
   if (mods.hasShift) consumedMods |= const .shift();
 
   final keyboard = HardwareKeyboard.instance;
-  final rightAltPressed = keyboard.isLogicalKeyPressed(.altRight);
-  if (mods.hasAlt && rightAltPressed) {
+  // We only reach this point when a composed character that differs from the
+  // base key was produced, so whichever Alt is held was consumed to make it.
+  // macOS has no AltGr: both Option keys compose (there is no left-Alt-is-Meta
+  // / right-Alt-is-AltGr split), so either side counts. Elsewhere only the
+  // right Alt (AltGr) composes; the left Alt stays Meta and is not consumed.
+  final altComposed = defaultTargetPlatform == TargetPlatform.macOS
+      ? mods.hasAlt
+      : mods.hasAlt && keyboard.isLogicalKeyPressed(.altRight);
+  if (altComposed) {
     consumedMods |= const .alt();
     if (keyboard.isControlPressed) consumedMods |= const .ctrl();
   }
