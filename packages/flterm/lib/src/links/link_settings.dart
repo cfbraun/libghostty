@@ -215,6 +215,11 @@ final class LinkSettings {
   /// Called when the user activates a detected link.
   final ValueChanged<ActivatedLink>? onActivate;
 
+  /// Like [onActivate] but also receives the global pointer position, for
+  /// anchoring UI (e.g. a popover) at the click. When set it is called instead
+  /// of [onActivate].
+  final void Function(ActivatedLink link, Offset globalPosition)? onActivateAt;
+
   /// Called when the user right-clicks (secondary-activates) a detected link,
   /// with the global pointer position for anchoring a context menu. The press
   /// is not forwarded to the terminal/application when this fires.
@@ -232,6 +237,7 @@ final class LinkSettings {
     this.modifier = .primary,
     this.rules = const [],
     this.onActivate,
+    this.onActivateAt,
     this.onSecondaryActivate,
     this.hoverHighlightRequiresModifier = true,
   });
@@ -242,6 +248,7 @@ final class LinkSettings {
     modifier,
     Object.hashAll(rules),
     onActivate,
+    onActivateAt,
     onSecondaryActivate,
     hoverHighlightRequiresModifier,
   );
@@ -254,6 +261,7 @@ final class LinkSettings {
           modifier == other.modifier &&
           listEquals(rules, other.rules) &&
           onActivate == other.onActivate &&
+          onActivateAt == other.onActivateAt &&
           onSecondaryActivate == other.onSecondaryActivate &&
           hoverHighlightRequiresModifier ==
               other.hoverHighlightRequiresModifier;

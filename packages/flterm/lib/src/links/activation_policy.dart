@@ -12,7 +12,10 @@ bool canActivateLink({
   required Mods virtualMods,
   PointerDeviceKind? pointerKind,
 }) {
-  if (settings.types.isEmpty || settings.onActivate == null) return false;
+  if (settings.types.isEmpty ||
+      (settings.onActivate == null && settings.onActivateAt == null)) {
+    return false;
+  }
   if (pointerKind != null && pointerKind != .mouse) return true;
 
   final keyboard = HardwareKeyboard.instance;

@@ -52,6 +52,7 @@ final class InteractionRegion extends StatefulWidget {
   final ValueChanged<int> onViewportRowChanged;
   final ValueChanged<ScrollInput> onScrollInput;
   final ValueChanged<ActivatedLink>? onLinkActivate;
+  final void Function(ActivatedLink link, Offset globalPosition)? onActivateAt;
   final void Function(ActivatedLink link, Offset globalPosition)?
   onSecondaryActivate;
   final ValueListenable<TerminalInteractionState> interaction;
@@ -59,6 +60,7 @@ final class InteractionRegion extends StatefulWidget {
   const InteractionRegion({
     super.key,
     this.onLinkActivate,
+    this.onActivateAt,
     this.onSecondaryActivate,
     required this.child,
     required this.links,
@@ -413,7 +415,13 @@ final class _InteractionRegionState extends State<InteractionRegion> {
         localPosition: details.localPosition,
         metrics: widget.metrics,
       );
-      if (link != null) widget.onLinkActivate?.call(link);
+      if (link != null) {
+        if (widget.onActivateAt != null) {
+          widget.onActivateAt!(link, details.globalPosition);
+        } else {
+          widget.onLinkActivate?.call(link);
+        }
+      }
       _terminalOwnsInteraction = false;
       return;
     }

@@ -372,7 +372,8 @@ final class LinkInteraction extends ChangeNotifier {
 
   bool _sameGestureSettings(LinkSettings a, LinkSettings b) {
     return a.modifier == b.modifier &&
-        (a.onActivate != null) == (b.onActivate != null);
+        (a.onActivate != null) == (b.onActivate != null) &&
+        (a.onActivateAt != null) == (b.onActivateAt != null);
   }
 
   bool _sameMatchSettings(LinkSettings a, LinkSettings b) {
