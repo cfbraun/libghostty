@@ -142,6 +142,13 @@ final class LinkInteraction extends ChangeNotifier {
     return _linkAt(metrics.cellAt(localPosition)) != null;
   }
 
+  /// The link at [localPosition], if any, without touching hover/press state.
+  /// Used for secondary (right-click) activation.
+  ActivatedLink? linkAt({
+    required Offset localPosition,
+    required CellMetrics metrics,
+  }) => _linkAt(metrics.cellAt(localPosition));
+
   ActivatedLink? handleRelease({
     required Offset localPosition,
     required CellMetrics metrics,
@@ -281,7 +288,14 @@ final class LinkInteraction extends ChangeNotifier {
     required CellMetrics metrics,
     required Mods virtualMods,
   }) {
-    if (!_canActivate(.mouse, virtualMods)) {
+    // With hoverHighlightRequiresModifier (default) the highlight tracks
+    // click-eligibility (modifier held). Otherwise highlight on plain hover
+    // whenever detection is enabled (Warp-style); clicking still needs the
+    // modifier via handlePress.
+    final suppressed = _settings.hoverHighlightRequiresModifier
+        ? !_canActivate(.mouse, virtualMods)
+        : _settings.types.isEmpty;
+    if (suppressed) {
       _clearHoverHit();
       return null;
     }

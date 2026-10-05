@@ -1,3 +1,5 @@
+import 'dart:ui' show Offset;
+
 import 'package:flutter/foundation.dart';
 
 import '../foundation/cell_range.dart';
@@ -213,11 +215,25 @@ final class LinkSettings {
   /// Called when the user activates a detected link.
   final ValueChanged<ActivatedLink>? onActivate;
 
+  /// Called when the user right-clicks (secondary-activates) a detected link,
+  /// with the global pointer position for anchoring a context menu. The press
+  /// is not forwarded to the terminal/application when this fires.
+  final void Function(ActivatedLink link, Offset globalPosition)?
+  onSecondaryActivate;
+
+  /// When true (default), link hover highlighting only appears while the
+  /// activation [modifier] is held, matching click-to-open eligibility. Set
+  /// false to underline links on plain hover (Warp-style); clicking to open
+  /// still requires the modifier.
+  final bool hoverHighlightRequiresModifier;
+
   const LinkSettings({
     this.types = const {.osc8, .text, .custom},
     this.modifier = .primary,
     this.rules = const [],
     this.onActivate,
+    this.onSecondaryActivate,
+    this.hoverHighlightRequiresModifier = true,
   });
 
   @override
@@ -226,6 +242,8 @@ final class LinkSettings {
     modifier,
     Object.hashAll(rules),
     onActivate,
+    onSecondaryActivate,
+    hoverHighlightRequiresModifier,
   );
 
   @override
@@ -235,7 +253,10 @@ final class LinkSettings {
           setEquals(types, other.types) &&
           modifier == other.modifier &&
           listEquals(rules, other.rules) &&
-          onActivate == other.onActivate;
+          onActivate == other.onActivate &&
+          onSecondaryActivate == other.onSecondaryActivate &&
+          hoverHighlightRequiresModifier ==
+              other.hoverHighlightRequiresModifier;
 }
 
 /// Source category for detected links.
