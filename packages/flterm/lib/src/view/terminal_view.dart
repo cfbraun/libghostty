@@ -221,6 +221,7 @@ final class _TerminalViewState extends State<TerminalView>
                   selection: _attachment.selectionInput,
                   terminalBackground: _theme.background,
                   onLinkActivate: widget.linkSettings.onActivate,
+                  onActivateAt: widget.linkSettings.onActivateAt,
                   onSecondaryActivate: widget.linkSettings.onSecondaryActivate,
                   onViewportRowChanged: _attachment.handleViewportRowChanged,
                   child: ListenableBuilder(
