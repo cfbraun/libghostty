@@ -50,6 +50,16 @@ final class TextInputSession with DeltaTextInputClient {
   TextEditingValue _value = _sentinel;
   int? _viewId;
 
+  // Last geometry pushed to the platform IME, to skip redundant calls. The
+  // caret moves on every rendered frame while the terminal streams output, so
+  // pushing it unconditionally hammered the macOS text-input system ~180×/s
+  // while focused — for a candidate window that is only shown during an active
+  // composition.
+  Size? _lastEditableSize;
+  Matrix4? _lastTransform;
+  Rect? _lastCaretRect;
+  Rect? _lastComposingRect;
+
   @override
   AutofillScope? get currentAutofillScope => null;
 
@@ -247,10 +257,31 @@ final class TextInputSession with DeltaTextInputClient {
   }) {
     final connection = _connection;
     if (connection == null || !connection.attached) return;
-    connection
-      ..setEditableSizeAndTransform(editableSize, transform)
-      ..setCaretRect(caretRect)
-      ..setComposingRect(composingRect);
+    // Editable bounds change only on resize/scroll — dedup so a stream of
+    // identical geometry (every frame) does not cross the platform channel.
+    if (editableSize != _lastEditableSize || transform != _lastTransform) {
+      connection.setEditableSizeAndTransform(editableSize, transform);
+      _lastEditableSize = editableSize;
+      _lastTransform = transform;
+    }
+    // The caret/composing rects only position the IME candidate + preedit UI,
+    // which is shown only during an active composition (dead keys, CJK, …).
+    // Agent output moves the cursor every frame with no composition up, so
+    // skip the per-frame push entirely then; it resumes the moment composing
+    // begins (that transition itself re-fires a geometry update).
+    if (!hasActiveComposition) {
+      _lastCaretRect = null;
+      _lastComposingRect = null;
+      return;
+    }
+    if (caretRect != _lastCaretRect) {
+      connection.setCaretRect(caretRect);
+      _lastCaretRect = caretRect;
+    }
+    if (composingRect != _lastComposingRect) {
+      connection.setComposingRect(composingRect);
+      _lastComposingRect = composingRect;
+    }
   }
 
   void _armNewlineActionDedupeTimer() {
