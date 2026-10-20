@@ -331,6 +331,8 @@ final class ViewAttachment extends ChangeNotifier {
 
     if (_shouldIgnoreSuperShortcut(input)) return .ignored;
 
+    if (_shouldIgnoreTabSwitch(input)) return .ignored;
+
     if (_shouldForwardCompositionKey(input)) return .skipRemainingHandlers;
 
     final routeToTextInput = _shouldRouteToTextInput(input);
@@ -467,6 +469,29 @@ final class ViewAttachment extends ChangeNotifier {
     final mods = input.mods;
     if (!mods.hasSuper || mods.hasCtrl) return false;
     return input.character != null;
+  }
+
+  /// Whether this is a Ctrl+Tab / Ctrl+Shift+Tab tab-switch chord that the
+  /// embedding app handles globally — it is never terminal input.
+  ///
+  /// Native terminals (iTerm2, Terminal.app, Ghostty) intercept Ctrl+Tab for
+  /// tab switching and never forward it to the shell. Flutter still delivers
+  /// the key-down to the focused terminal even when a global HardwareKeyboard
+  /// handler already consumed it (same issue as [_shouldIgnoreSuperShortcut]),
+  /// and the encoder would then emit a CSI sequence (`CSI 27;5;9~` in
+  /// modifyOtherKeys, `CSI 9;5 u` in Kitty) to the PTY. Returning it as ignored
+  /// lets the app-level shortcut win.
+  ///
+  /// **Pure Ctrl(+Shift) only.** Alt/Super combos and every other Ctrl chord
+  /// (Ctrl+C, …) are untouched — only the Tab key with Control is swallowed.
+  bool _shouldIgnoreTabSwitch(KeyInput input) {
+    if (!_isDesktopPlatform) return false;
+    if (input.action != .press && input.action != .repeat) return false;
+    if (input.key != .tab) return false;
+    final mods = input.mods;
+    // Ctrl may have been folded into consumedMods during encoding; check both.
+    final ctrlHeld = mods.hasCtrl || input.consumedMods.hasCtrl;
+    return ctrlHeld && !mods.hasAlt && !mods.hasSuper;
   }
 
   bool _shouldForwardCompositionKey(KeyInput input) {
