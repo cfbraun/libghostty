@@ -143,8 +143,21 @@ final class CompressionScheduler {
   }
 
   static void _scheduleAtIdle(VoidCallback callback) {
+    final binding = SchedulerBinding.instance;
+    // `scheduleTask` at idle priority busy-spins the event loop when the app
+    // never reaches idle: a terminal streaming output keeps a frame scheduled,
+    // so the queued idle task can never run, and SchedulerBinding re-arms its
+    // event-loop timer on every turn trying to run it — burning a whole core
+    // (visible as a storm of _SendPort._sendInternal from Timer arming). While
+    // a frame is pending, retry after it instead: post-frame callbacks fire at
+    // frame cadence rather than in a spin, and once output goes quiet (no frame
+    // scheduled) the idle task runs normally and compression proceeds.
+    if (binding.hasScheduledFrame) {
+      binding.addPostFrameCallback((_) => _scheduleAtIdle(callback));
+      return;
+    }
     unawaited(
-      SchedulerBinding.instance.scheduleTask(
+      binding.scheduleTask(
         callback,
         .idle,
         debugLabel: 'Terminal scrollback compression',
